@@ -12,6 +12,8 @@ const path = require('path');
 const os = require('os');
 const { exec } = require('child_process');
 const { parseCsv } = require('./lib/csv');
+const furigana = require('./lib/furigana');
+const furiReady = furigana.init();   // loads the dictionary in the background; text is served without readings until ready
 
 const argv = process.argv.slice(2);
 const arg = (name, def) => { const i = argv.indexOf('--' + name); return i >= 0 ? argv[i + 1] : def; };
@@ -55,6 +57,14 @@ function loadSection(testId, sectionId) {
   });
   return { test: { id: manifest.id || testId, title: manifest.title || testId }, section: { id: sec.id, title: sec.title, timeLimitMin: sec.timeLimitMin || null, type: sec.type || 'text' }, groups, questions };
 }
+/* add 《readings》 to every Japanese text field of a loaded section (idempotent) */
+function addFurigana(data) {
+  const a = furigana.annotate;
+  for (const g of Object.values(data.groups || {})) { g.instructions = a(g.instructions); g.passage = a(g.passage); }
+  for (const q of data.questions || []) {
+    q.prompt = a(q.prompt); q.choices = (q.choices || []).map(a); q.why = (q.why || []).map(a); q.explanation = a(q.explanation); q.transcript = a(q.transcript);
+  }
+}
 function listTests() {
   const out = [];
   for (const d of fs.readdirSync(TESTS_DIR, { withFileTypes: true })) {
@@ -66,9 +76,11 @@ function listTests() {
         try { count = readCsv(path.join(TESTS_DIR, d.name, s.file)).filter((r) => r.id).length; } catch (e) { /* ignore */ }
         return { id: s.id, title: s.title, timeLimitMin: s.timeLimitMin || null, type: s.type || 'text', count };
       });
-      out.push({ id: m.id || d.name, dir: d.name, title: m.title || d.name, level: m.level || '', description: m.description || '', source: m.source || '', sections });
+      out.push({ id: m.id || d.name, dir: d.name, title: m.title || d.name, level: m.level || '', published: m.published ? String(m.published) : '', description: m.description || '', source: m.source || '', sections });
     } catch (e) { console.warn('Skipping test', d.name, e.message); }
   }
+  // newest first (by published date, "YYYY", "YYYY-MM" or "YYYY-MM-DD"); undated tests last
+  out.sort((a, b) => (b.published || '').localeCompare(a.published || '') || a.title.localeCompare(b.title));
   return out;
 }
 
@@ -116,7 +128,9 @@ const server = http.createServer(async (req, res) => {
       if (parts[1] === 'config') return sendJson(res, 200, { dataDir: DATA_DIR });
       if (parts[1] === 'tests' && parts.length === 2) return sendJson(res, 200, listTests());
       if (parts[1] === 'tests' && parts[3] === 'sections' && parts[4] && safeId(parts[2]) && safeId(parts[4])) {
+        await furiReady;
         const data = loadSection(parts[2], parts[4]);
+        if (data) addFurigana(data);
         return data ? sendJson(res, 200, data) : sendJson(res, 404, { error: 'section not found' });
       }
       if (parts[1] === 'results') {
@@ -129,7 +143,13 @@ const server = http.createServer(async (req, res) => {
         }
         if (parts[2] && safeId(parts[2])) {
           const f = path.join(RESULTS_DIR, parts[2] + '.json');
-          if (req.method === 'GET') return fs.existsSync(f) ? sendJson(res, 200, readJson(f)) : sendJson(res, 404, { error: 'not found' });
+          if (req.method === 'GET') {
+            if (!fs.existsSync(f)) return sendJson(res, 404, { error: 'not found' });
+            await furiReady;
+            const r = readJson(f);
+            for (const s of r.sections || []) { addFurigana({ groups: s.groups, questions: s.questions }); }
+            return sendJson(res, 200, r);
+          }
           if (req.method === 'DELETE') { if (fs.existsSync(f)) fs.unlinkSync(f); return sendJson(res, 200, { ok: true }); }
         }
       }

@@ -4,6 +4,11 @@
 html{zoom:1.5}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Segoe UI","Yu Gothic UI","Meiryo",system-ui,sans-serif}
 .top{display:flex;gap:24px;align-items:center;padding:10px 24px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.furibtn{margin-left:auto;width:36px;height:36px;padding:0;border-radius:50%;font-weight:700;font-size:16px;color:var(--mute)}
+.furibtn.hidden{display:none}
+.furibtn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+rt{display:none;font-size:.5em}
+body.furi rt{display:revert}
 .brand{font-weight:700;font-size:18px;color:var(--ink);text-decoration:none}
 .top nav a{margin-right:16px;color:var(--mute);text-decoration:none;padding:4px 2px}
 .top nav a.on{color:var(--accent);border-bottom:2px solid var(--accent)}
@@ -62,3 +67,6 @@ audio{width:100%;margin:8px 0}
 .modal{position:fixed;inset:0;background:#0008;display:grid;place-items:center;z-index:20}.modal.hidden{display:none}
 .modal .box{background:var(--card);border-radius:12px;padding:22px 24px;max-width:460px;width:90%}
 .score-big{font-size:46px;font-weight:700;line-height:1.1}
+.notes{display:block;margin-top:14px}
+.notes textarea{width:100%;box-sizing:border-box;margin-top:4px;padding:8px 10px;font:inherit;font-size:16px;line-height:1.6;color:var(--fg,inherit);background:var(--bg);border:1px solid var(--line);border-radius:8px;resize:vertical}
+.mynote{background:var(--bg);border:1px solid var(--line);border-left:4px solid var(--warn,#d9a400);border-radius:8px;padding:8px 12px;margin:10px 0;font-size:15px}

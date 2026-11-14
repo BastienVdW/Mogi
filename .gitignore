@@ -227,3 +227,14 @@ tools/source/*
 # Question/explanation modules embed the official questions
 tools/authoring/n1_20[0-9][0-9]_[a-z]*.py
 !tools/authoring/n1_20[0-9][0-9]_script.py
+
+# Node
+node_modules/
+
+# Kanzen Moshi transcriptions embed the book's questions/explanations
+tools/extract/kanzen/d3_*.py
+tools/extract/kanzen/key*.py
+tools/extract/kanzen/d1_*.py
+
+# OCR work-in-progress scripts (scratch parsers over the scanned book; keep out of repo)
+tools/extract/ocr_wip/

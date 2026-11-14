@@ -3,5 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "description": "JLPT practice app (zero dependencies)",
-  "scripts": { "test": "node --test \"test/*.test.js\"" }
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  },
+  "dependencies": {
+    "kuromoji": "^0.1.2"
+  }
 }

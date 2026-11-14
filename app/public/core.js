@@ -8,9 +8,10 @@
 
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  /* inline markup: __underline__  [[highlight]]  {41} blank box  **bold** */
+  /* inline markup: __underline__  [[highlight]]  {41} blank box  **bold**  漢字《かんじ》 furigana (ruby) */
   function inl(s) {
-    return esc(s).replace(/__(.+?)__/g, '<u>$1</u>').replace(/\[\[(.+?)\]\]/g, '<mark>$1</mark>')
+    return esc(s).replace(/([一-鿿々〆ヶ]+)《([^》]+)》/g, '<ruby>$1<rt>$2</rt></ruby>')
+      .replace(/__(.+?)__/g, '<u>$1</u>').replace(/\[\[(.+?)\]\]/g, '<mark>$1</mark>')
       .replace(/\{(\d+(?:-[ab])?)\}/g, '<span class="blank">$1</span>').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
   }
 
@@ -66,7 +67,7 @@
     const questions = d.questions.map((q) => {
       const sel = take.answers[q.id] || null;
       return { id: q.id, number: q.number, group: q.group, prompt: q.prompt, choices: q.choices, answer: q.answer, selected: sel, isCorrect: sel === q.answer,
-        flagged: !!take.flags[q.id], timeSec: Math.round(take.times[q.id] || 0), explanation: q.explanation, why: q.why, transcript: q.transcript };
+        flagged: !!take.flags[q.id], note: (take.notes && take.notes[q.id]) || '', timeSec: Math.round(take.times[q.id] || 0), explanation: q.explanation, why: q.why, transcript: q.transcript };
     });
     const correct = questions.filter((q) => q.isCorrect).length;
     return { schemaVersion: 1, createdAt: take.startedAt, finishedAt: nowIso, sections: [{

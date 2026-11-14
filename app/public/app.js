@@ -6,6 +6,14 @@ const S = { take: null, cleanup: null, tests: null };
 const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* ignore */ } }, del(k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } } };
 
+KEY.furi = 'n1.furigana';
+(function initFuri() {   // furigana toggle (top right), off by default, remembered
+  const btn = document.getElementById('furibtn');
+  const apply = (on) => { document.body.classList.toggle('furi', on); btn.classList.toggle('on', on); btn.setAttribute('aria-pressed', String(on)); };
+  apply(LS.get(KEY.furi, false));
+  btn.onclick = () => { const on = !document.body.classList.contains('furi'); apply(on); LS.set(KEY.furi, on); };
+})();
+
 async function api(path, opt) {
   const r = await fetch(path, opt);
   if (!r.ok) throw new Error(await r.text());
@@ -24,6 +32,7 @@ async function route() {
   closeModal();
   const h = location.hash.replace(/^#/, '') || '/';
   const parts = h.split('/').filter(Boolean).map(decodeURIComponent);
+  document.getElementById('furibtn').classList.toggle('hidden', !(parts[0] === 'take' || parts[0] === 'result'));
   document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === (parts[0] === 'history' || parts[0] === 'result' ? 'history' : 'home')));
   try {
     if (!parts.length) return await viewHome();
@@ -51,7 +60,7 @@ async function viewHome() {
       <button class="primary" id="resume">Resume</button><button class="danger" id="discard">Discard</button></div>` : ''}
     <label class="row small" style="margin-bottom:10px"><input type="checkbox" id="timed" ${timed ? 'checked' : ''}> Timed (countdown with the official time limit; auto-submit at zero)</label>
     <label class="row small" style="margin-bottom:10px"><input type="checkbox" id="fb" ${fb ? 'checked' : ''}> Instant feedback (after you answer, the correct answer and explanation are shown and your answer is locked)</label>
-    ${tests.length ? tests.map((t) => `<div class="card"><div class="row"><h2 style="margin:0" class="grow">${esc(t.title)}</h2><span class="tag">${esc(t.level)}</span></div>
+    ${tests.length ? tests.map((t) => `<div class="card"><div class="row"><h2 style="margin:0" class="grow">${esc(t.title)}</h2>${t.published ? `<span class="tag">Published ${esc(t.published)}</span>` : ''}<span class="tag">${esc(t.level)}</span></div>
       <div class="muted small">${esc(t.description)}</div><div style="margin-top:8px">
       ${t.sections.map((s) => { const st = stat[t.id + '/' + s.id]; return `<div class="sec"><div class="grow"><b>${esc(s.title)}</b>
         <div class="muted small">${s.count} questions · ${s.timeLimitMin ? s.timeLimitMin + ' min' : 'no limit'} · ${s.type === 'audio' ? '🔊 audio' : 'text'}</div></div>
@@ -72,16 +81,16 @@ async function viewHome() {
 async function startTake(testId, sectionId, timed, resume, feedback) {
   const data = await api(`/api/tests/${encodeURIComponent(testId)}/sections/${encodeURIComponent(sectionId)}`);
   const limit = timed && data.section.timeLimitMin ? data.section.timeLimitMin * 60 : null;
-  S.take = { testId, sectionId, data, limit, timed, feedback: !!feedback, answers: {}, flags: {}, times: {}, idx: 0, elapsed: 0, startedAt: new Date().toISOString(), shownGroup: null };
-  if (resume) Object.assign(S.take, { answers: resume.answers, flags: resume.flags, times: resume.times, idx: Math.min(resume.idx, data.questions.length - 1), elapsed: resume.elapsed, startedAt: resume.startedAt });
+  S.take = { testId, sectionId, data, limit, timed, feedback: !!feedback, answers: {}, flags: {}, notes: {}, times: {}, idx: 0, elapsed: 0, startedAt: new Date().toISOString(), shownGroup: null };
+  if (resume) Object.assign(S.take, { answers: resume.answers, flags: resume.flags, notes: resume.notes || {}, times: resume.times, idx: Math.min(resume.idx, data.questions.length - 1), elapsed: resume.elapsed, startedAt: resume.startedAt });
   saveProgress();
   if (location.hash === '#/take') route(); else location.hash = '#/take';
 }
 function saveProgress() {
   const t = S.take; if (!t) return;
-  if (!Object.keys(t.answers).length) { LS.del(KEY.progress); return; }   // nothing answered: not worth resuming
+  if (!Object.keys(t.answers).length && !Object.values(t.notes || {}).some(Boolean)) { LS.del(KEY.progress); return; }   // nothing answered: not worth resuming
   LS.set(KEY.progress, { testId: t.testId, sectionId: t.sectionId, testTitle: t.data.test.title, sectionTitle: t.data.section.title, timed: t.timed, feedback: t.feedback,
-    answers: t.answers, flags: t.flags, times: t.times, idx: t.idx, elapsed: t.elapsed, startedAt: t.startedAt });
+    answers: t.answers, flags: t.flags, notes: t.notes, times: t.times, idx: t.idx, elapsed: t.elapsed, startedAt: t.startedAt });
 }
 function viewTake() {
   const t = S.take, qs = t.data.questions;
@@ -101,7 +110,7 @@ function viewTake() {
   };
   const iv = setInterval(tick, 1000), sv = setInterval(saveProgress, 5000);
   const key = (e) => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'AUDIO') return;
+    if (['INPUT', 'TEXTAREA', 'AUDIO'].includes(e.target.tagName)) return;
     const n = parseInt(e.key, 10);
     if (n >= 1 && n <= qs[t.idx].choices.length) pick(n);
     else if (e.key === 'ArrowRight') go(t.idx + 1); else if (e.key === 'ArrowLeft') go(t.idx - 1);
@@ -168,11 +177,14 @@ function renderQuestion() {
     ${promptHtml(q.prompt)}
     ${hide ? '<div class="muted small">Audio-only question: choices are not printed. Choose the number you heard.</div>' : ''}
     <div id="choices"></div>
+    ${t.data.section.type === 'audio' ? `<label class="notes"><span class="small muted">📝 Notes (kept with the attempt and saved in the result)</span><textarea id="note" rows="4" placeholder="Jot down what you hear…">${esc(t.notes[q.id] || '')}</textarea></label>` : ''}
     <div class="row" style="margin-top:14px"><button id="prev" ${t.idx === 0 ? 'disabled' : ''}>← Previous</button><span class="grow"></span>
       <span class="muted small">${t.idx + 1} / ${qs.length}</span><span class="grow"></span>
       ${t.idx < qs.length - 1 ? '<button id="next" class="primary">Next →</button>' : '<button id="fin" class="primary">Finish & submit…</button>'}</div>`;
   renderChoices();
   document.getElementById('flagbtn').onclick = toggleFlag;
+  const note = document.getElementById('note');
+  if (note) note.oninput = () => { if (note.value) t.notes[q.id] = note.value; else delete t.notes[q.id]; saveProgress(); };
   document.getElementById('prev').onclick = () => go(t.idx - 1);
   const nx = document.getElementById('next'); if (nx) nx.onclick = () => go(t.idx + 1);
   const fn = document.getElementById('fin'); if (fn) fn.onclick = confirmSubmit;
@@ -226,6 +238,7 @@ function reviewBody(q) {
   return `${q.choices.map((c, i) => { const n = i + 1, ok = n === q.answer, no = q.selected === n && !ok;
         return `<div class="choice ${ok ? 'ok' : ''} ${no ? 'no' : ''}"><span class="n">${n}</span><span class="grow">${inl(c)}${q.selected === n ? ' <span class="small muted">← your answer</span>' : ''}${ok ? ' <span class="small" style="color:var(--good)">✔ correct</span>' : ''}</span></div>
         ${q.why && q.why[i] ? `<div class="why">${inl(q.why[i])}</div>` : ''}`; }).join('')}
+      ${q.note ? `<div class="mynote"><b>📝 Your notes:</b><div>${esc(q.note).replace(/\n/g, '<br>')}</div></div>` : ''}
       ${q.explanation ? `<div class="expl"><b>Explanation:</b> ${fmt(q.explanation)}</div>` : ''}
       ${q.transcript ? `<details open><summary>Audio transcript</summary><div class="transcript">${fmt(q.transcript)}</div></details>` : ''}`;
 }

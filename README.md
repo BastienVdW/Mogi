@@ -9,6 +9,7 @@ per-choice explanations, and keep a history of your attempts.
 - Take each section separately (vocabulary, grammar, reading, listening) with an optional timer.
 - Question navigator, progress bar, flagging, keyboard shortcuts (1-4, left/right, F), resume after reload.
 - Optional **instant feedback**: reveal the real answer and explanations right after answering, and lock the answer.
+- A **notes** box under every listening question (kept when you resume, saved in the result and shown in the review).
 - Audio playback for listening sections, with transcripts and highlighted key phrases in the review.
 - History of attempts (date, time taken, score). Open one to see every question, your pick, the correct answer and the explanations.
 - Sections from different tests can be mixed: results store a full snapshot of the questions.
@@ -45,7 +46,7 @@ copyrighted, so you add them yourself: see [`tools/source/README.md`](tools/sour
 <data dir>/results/<result-id>.json                        self-contained attempt snapshot
 ```
 
-`test.json`: `{schemaVersion, id, title, level, source, description, sections:[{id, title, file, groups, timeLimitMin, type}]}` where `type` is `text` or `audio`.
+`test.json`: `{schemaVersion, id, title, level, source, published, perChoiceNotes, description, sections:[{id, title, file, groups, timeLimitMin, type}]}` where `type` is `text` or `audio`. `published` (e.g. `2012-11`) is shown next to the test name and the list is sorted newest first. `perChoiceNotes: false` means the book gives one explanation per question rather than per choice. The Kanzen Moshi N1 tests (see `tools/source/README.md`) are transcribed from a purchased book, so that source is not included in the repo.
 
 Questions CSV (UTF-8, BOM ok):
 `id,group,number,prompt,choice1..4,answer,explanation,why1..4,transcript,audio_start`
@@ -53,7 +54,7 @@ Questions CSV (UTF-8, BOM ok):
 Groups CSV: `id,title,instructions,passage,audio,hide_choices`
 (`hide_choices=1` shows only numbers during the test and reveals the choices in review.)
 
-Text markup: `__x__` underline, `[[x]]` highlight, `**x**` bold, `{n}` / `{43-a}` boxed blank, lines starting with `|` are table rows.
+Text markup: `__x__` underline, `[[x]]` highlight, `**x**` bold, `漢字《かんじ》` furigana (shown with the ふ button), `{n}` / `{43-a}` boxed blank, lines starting with `|` are table rows.
 
 ## Tests
 

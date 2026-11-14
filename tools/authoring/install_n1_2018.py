@@ -18,6 +18,7 @@ write_manifest(T, {
     'id': T,
     'title': 'JLPT N1 Official Sample (2018 revised)',
     'level': 'N1',
+    'published': '2018',
     'source': 'https://www.jlpt.jp/e/samples/sampleindex.html',
     'description': 'Official sample questions published by JEES / Japan Foundation. Explanations are added by this project.',
     'sections': [

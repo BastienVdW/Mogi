@@ -28,7 +28,7 @@ for (const d of dirs) {
         assert.ok(a >= 1 && a <= n, `${q.id}: answer ${q.answer} out of range`);
         assert.ok(groups[q.group], `${q.id}: unknown group ${q.group}`);
         assert.ok(q.explanation, `${q.id}: missing explanation`);
-        for (let i = 1; i <= n; i++) assert.ok(q['why' + i], `${q.id}: missing why${i}`);
+        if (m.perChoiceNotes !== false) for (let i = 1; i <= n; i++) assert.ok(q['why' + i], `${q.id}: missing why${i}`);
         if (s.type === 'audio') assert.ok(q.transcript, `${q.id}: missing transcript`);
       }
       for (const g of Object.values(groups)) {

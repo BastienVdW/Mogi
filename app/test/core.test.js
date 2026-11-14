@@ -110,3 +110,13 @@ test('buildResult marks timed-out attempts and survives an empty section', () =>
   t.data.questions = [];
   assert.strictEqual(Core.buildResult(t, false, 'x').sections[0].score.percent, 0);
 });
+
+test('buildResult keeps per-question notes', () => {
+  const t = mkTake({ notes: { q2: 'heard: tomorrow' } });
+  const qs = Core.buildResult(t, false, 'x').sections[0].questions;
+  assert.deepStrictEqual(qs.map((q) => q.note), ['', 'heard: tomorrow', '']);
+});
+
+test('inl renders furigana as ruby', () => {
+  assert.strictEqual(Core.inl('彼は勉強《べんきょう》する'), '彼は<ruby>勉強<rt>べんきょう</rt></ruby>する');
+});
