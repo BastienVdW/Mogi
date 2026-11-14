@@ -79,6 +79,7 @@ async function startTake(testId, sectionId, timed, resume, feedback) {
 }
 function saveProgress() {
   const t = S.take; if (!t) return;
+  if (!Object.keys(t.answers).length) { LS.del(KEY.progress); return; }   // nothing answered: not worth resuming
   LS.set(KEY.progress, { testId: t.testId, sectionId: t.sectionId, testTitle: t.data.test.title, sectionTitle: t.data.section.title, timed: t.timed, feedback: t.feedback,
     answers: t.answers, flags: t.flags, times: t.times, idx: t.idx, elapsed: t.elapsed, startedAt: t.startedAt });
 }

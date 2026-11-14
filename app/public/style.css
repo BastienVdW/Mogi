@@ -1,6 +1,7 @@
 :root{--bg:#f5f6f8;--card:#fff;--ink:#1d2330;--mute:#667085;--line:#e1e5ec;--accent:#3b5bdb;--accent-ink:#fff;--good:#1f9d55;--good-bg:#e6f6ec;--bad:#d64545;--bad-bg:#fdecec;--warn:#e8890c;--warn-bg:#fff4e0;--mark:#fff2a8}
 @media (prefers-color-scheme:dark){:root{--bg:#14171d;--card:#1d222b;--ink:#e8ebf1;--mute:#98a2b3;--line:#303744;--accent:#7b93ff;--accent-ink:#0b0f1a;--good:#4cc27f;--good-bg:#173626;--bad:#ff7b7b;--bad-bg:#3c1d1d;--warn:#ffb454;--warn-bg:#3b2b12;--mark:#6b5d12}}
 *{box-sizing:border-box}
+html{zoom:1.5}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Segoe UI","Yu Gothic UI","Meiryo",system-ui,sans-serif}
 .top{display:flex;gap:24px;align-items:center;padding:10px 24px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
 .brand{font-weight:700;font-size:18px;color:var(--ink);text-decoration:none}
