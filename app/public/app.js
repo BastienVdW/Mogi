@@ -11,7 +11,14 @@ KEY.furi = 'n1.furigana';
   const btn = document.getElementById('furibtn');
   const apply = (on) => { document.body.classList.toggle('furi', on); btn.classList.toggle('on', on); btn.setAttribute('aria-pressed', String(on)); };
   apply(LS.get(KEY.furi, false));
-  btn.onclick = () => { const on = !document.body.classList.contains('furi'); apply(on); LS.set(KEY.furi, on); };
+  const toggle = () => { const on = !document.body.classList.contains('furi'); apply(on); LS.set(KEY.furi, on); };
+  btn.title = 'Show/hide furigana (R)';
+  btn.onclick = toggle;
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.key.toLowerCase() !== 'r') return;
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+    toggle();
+  });
 })();
 
 async function api(path, opt) {
@@ -102,7 +109,7 @@ function viewTake() {
     <div class="layout"><div class="card" id="qcard"></div>
       <aside class="card nav"><b>Questions</b><div class="grid" id="grid" style="margin-top:8px"></div>
       <div class="legend"><span>■ answered</span><span>□ not answered</span><span>⚑ flagged</span><span>outline = current</span></div>
-      <p class="small muted">Keys: 1–4 answer · ←/→ move · F flag</p></aside></div>`;
+      <p class="small muted">Keys: 1–4 answer · ←/→ move · F flag · R furigana</p></aside></div>`;
   document.getElementById('submit').onclick = confirmSubmit;
   const tick = () => {
     Core.advanceClock(t, Date.now(), qs[t.idx].id);
@@ -173,7 +180,7 @@ function renderQuestion() {
   }
   const hide = g.hideChoices;
   document.getElementById('qbox').innerHTML = `<div class="qhead"><span class="qnum">Q${esc(q.number)}</span><span class="grow"></span>
-      <button id="flagbtn">${t.flags[q.id] ? '⚑ Flagged' : '⚐ Flag'}</button></div>
+      <button id="flagbtn" title="Flag this question for review (F)">${t.flags[q.id] ? '⚑ Flagged' : '⚐ Flag'}</button></div>
     ${promptHtml(q.prompt)}
     ${hide ? '<div class="muted small">Audio-only question: choices are not printed. Choose the number you heard.</div>' : ''}
     <div id="choices"></div>
