@@ -123,3 +123,11 @@ test('static: index served at / and unknown files 404', async () => {
   assert.match(await r.text(), /<html/i);
   assert.strictEqual((await get('/nope.js')).status, 404);
 });
+
+test('static: index loads core.js before app.js, and core.js is served', async () => {
+  const html = await (await get('/')).text();
+  assert.ok(html.indexOf('core.js') > 0 && html.indexOf('core.js') < html.indexOf('app.js'));
+  const r = await get('/core.js');
+  assert.strictEqual(r.status, 200);
+  assert.match(r.headers.get('content-type'), /javascript/);
+});

@@ -2,6 +2,6 @@
   "name": "n1-trainer",
   "version": "1.0.0",
   "private": true,
-  "description": "JLPT N1 practice app (zero dependencies)",
+  "description": "JLPT practice app (zero dependencies)",
   "scripts": { "test": "node --test \"test/*.test.js\"" }
 }

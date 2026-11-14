@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* N1 Trainer: tiny dependency-free server.
+/* JLPT Trainer: tiny dependency-free server.
  * - App code lives here (app/). User data lives OUTSIDE the app:
  *     <dataDir>/tests/<testId>/{test.json, sections/*.csv, audio/*}
  *     <dataDir>/results/<resultId>.json
@@ -156,11 +156,11 @@ function openBrowser(u) {
   exec(cmd);
 }
 server.on('error', (e) => {
-  if (e.code === 'EADDRINUSE') { console.log(`N1 Trainer already running on port ${PORT}; opening the browser.`); openBrowser(`http://127.0.0.1:${PORT}`); setTimeout(() => process.exit(0), 300); }
+  if (e.code === 'EADDRINUSE') { console.log(`JLPT Trainer already running on port ${PORT}; opening the browser.`); openBrowser(`http://127.0.0.1:${PORT}`); setTimeout(() => process.exit(0), 300); }
   else throw e;
 });
 server.listen(PORT, '127.0.0.1', () => {
   const u = `http://127.0.0.1:${PORT}`;
-  console.log(`N1 Trainer running at ${u}\nData folder: ${DATA_DIR}\nPress Ctrl+C to stop.`);
+  console.log(`JLPT Trainer running at ${u}\nData folder: ${DATA_DIR}\nPress Ctrl+C to stop.`);
   openBrowser(u);
 });

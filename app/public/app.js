@@ -1,6 +1,7 @@
 'use strict';
-/* N1 Trainer front-end (vanilla JS, hash routing). All data comes from the local server API. */
+/* JLPT Trainer front-end (vanilla JS, hash routing). All data comes from the local server API. Pure helpers live in core.js. */
 const $app = document.getElementById('app');
+const KEY = { progress: 'n1.inprogress', timed: 'n1.timed', feedback: 'n1.feedback' };   // localStorage keys (names kept so existing progress/settings survive)
 const S = { take: null, cleanup: null, tests: null };
 const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* ignore */ } }, del(k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } } };
@@ -10,26 +11,9 @@ async function api(path, opt) {
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
-const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-/* inline markup: __underline__  [[highlight]]  {41} blank box  **bold** */
-function inl(s) {
-  return esc(s).replace(/__(.+?)__/g, '<u>$1</u>').replace(/\[\[(.+?)\]\]/g, '<mark>$1</mark>')
-    .replace(/\{(\d+(?:-[ab])?)\}/g, '<span class="blank">$1</span>').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
-}
-function fmt(text) {
-  let html = '', tbl = [];
-  const flush = () => { if (tbl.length) { html += '<table class="tbl">' + tbl.map((r, i) => '<tr>' + r.map((c) => `<${i ? 'td' : 'th'}>${inl(c)}</${i ? 'td' : 'th'}>`).join('') + '</tr>').join('') + '</table>'; tbl = []; } };
-  for (const l of String(text || '').split('\n')) {
-    if (l.startsWith('|')) { tbl.push(l.replace(/^\||\|$/g, '').split('|')); continue; }
-    flush(); html += inl(l) + '<br>';
-  }
-  flush();
-  return html;
-}
-const fmtTime = (sec) => { sec = Math.max(0, Math.round(sec || 0)); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0'); };
+const { esc, inl, fmt, fmtTime, pctClass, promptHtml } = Core;
 const fmtDate = (iso) => iso ? new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '';
 const mediaUrl = (testId, rel) => '/media/' + encodeURIComponent(testId) + '/' + rel.split('/').map(encodeURIComponent).join('/');
-const pctClass = (p) => (p >= 60 ? 'good' : p >= 40 ? 'warn' : 'bad');
 const scorePill = (sc) => `<span class="pill ${pctClass(sc.percent)}">${sc.correct}/${sc.total} · ${sc.percent}%</span>`;
 function modal(html) { const m = document.getElementById('modal'); m.innerHTML = '<div class="box">' + html + '</div>'; m.classList.remove('hidden'); return m; }
 const closeModal = () => document.getElementById('modal').classList.add('hidden');
@@ -60,8 +44,8 @@ async function viewHome() {
     const k = s.testId + '/' + s.sectionId; const a = stat[k] || (stat[k] = { n: 0, best: 0, last: null });
     a.n++; a.best = Math.max(a.best, s.score.percent); if (!a.last) a.last = s.score;
   }
-  const prog = LS.get('n1.inprogress', null);
-  const timed = LS.get('n1.timed', true), fb = LS.get('n1.feedback', false);
+  const prog = LS.get(KEY.progress, null);
+  const timed = LS.get(KEY.timed, true), fb = LS.get(KEY.feedback, false);
   $app.innerHTML = `<h1>Tests</h1>
     ${prog ? `<div class="card row"><div class="grow"><b>Unfinished attempt</b><div class="muted small">${esc(prog.testTitle)} – ${esc(prog.sectionTitle)} · ${Object.keys(prog.answers).length} answered · ${fmtTime(prog.elapsed)} elapsed</div></div>
       <button class="primary" id="resume">Resume</button><button class="danger" id="discard">Discard</button></div>` : ''}
@@ -75,12 +59,12 @@ async function viewHome() {
         <button class="primary" data-start="${esc(t.id)}|${esc(s.id)}">Start</button></div>`; }).join('')}</div></div>`).join('')
       : '<div class="card">No tests found. Put test folders under:<br><code>' + esc(cfg.dataDir) + '\\tests</code></div>'}
     <p class="muted small">Data folder: ${esc(cfg.dataDir)} (tests/ and results/ – separate from the app)</p>`;
-  document.getElementById('timed').onchange = (e) => LS.set('n1.timed', e.target.checked);
-  document.getElementById('fb').onchange = (e) => LS.set('n1.feedback', e.target.checked);
+  document.getElementById('timed').onchange = (e) => LS.set(KEY.timed, e.target.checked);
+  document.getElementById('fb').onchange = (e) => LS.set(KEY.feedback, e.target.checked);
   $app.querySelectorAll('[data-start]').forEach((b) => b.onclick = () => { const [t, s] = b.dataset.start.split('|'); startTake(t, s, document.getElementById('timed').checked, null, document.getElementById('fb').checked); });
   if (prog) {
     document.getElementById('resume').onclick = () => startTake(prog.testId, prog.sectionId, prog.timed, prog, !!prog.feedback);
-    document.getElementById('discard').onclick = () => { LS.del('n1.inprogress'); viewHome(); };
+    document.getElementById('discard').onclick = () => { LS.del(KEY.progress); viewHome(); };
   }
 }
 
@@ -95,7 +79,7 @@ async function startTake(testId, sectionId, timed, resume, feedback) {
 }
 function saveProgress() {
   const t = S.take; if (!t) return;
-  LS.set('n1.inprogress', { testId: t.testId, sectionId: t.sectionId, testTitle: t.data.test.title, sectionTitle: t.data.section.title, timed: t.timed, feedback: t.feedback,
+  LS.set(KEY.progress, { testId: t.testId, sectionId: t.sectionId, testTitle: t.data.test.title, sectionTitle: t.data.section.title, timed: t.timed, feedback: t.feedback,
     answers: t.answers, flags: t.flags, times: t.times, idx: t.idx, elapsed: t.elapsed, startedAt: t.startedAt });
 }
 function viewTake() {
@@ -111,9 +95,8 @@ function viewTake() {
       <p class="small muted">Keys: 1–4 answer · ←/→ move · F flag</p></aside></div>`;
   document.getElementById('submit').onclick = confirmSubmit;
   const tick = () => {
-    const now = Date.now(), d = Math.min((now - t.last) / 1000, 5); t.last = now;
-    t.elapsed += d; const q = qs[t.idx]; t.times[q.id] = (t.times[q.id] || 0) + d;
-    updateBar(); if (t.limit && t.elapsed >= t.limit) { submitTake(true); }
+    Core.advanceClock(t, Date.now(), qs[t.idx].id);
+    updateBar(); if (Core.isTimeUp(t)) submitTake(true);
   };
   const iv = setInterval(tick, 1000), sv = setInterval(saveProgress, 5000);
   const key = (e) => {
@@ -132,7 +115,8 @@ function updateBar() {
   const el = document.getElementById('timer'); if (!el) return;
   if (t.limit) { const left = t.limit - t.elapsed; el.textContent = fmtTime(left); el.classList.toggle('low', left < 300); document.getElementById('timersub').textContent = 'elapsed ' + fmtTime(t.elapsed) + ' / ' + fmtTime(t.limit); }
   else { el.textContent = fmtTime(t.elapsed); document.getElementById('timersub').textContent = 'untimed'; }
-  document.getElementById('progtxt').textContent = `${a} / ${n} answered` + (Object.values(t.flags).filter(Boolean).length ? ` · ${Object.values(t.flags).filter(Boolean).length} flagged` : '');
+  const flagged = Core.countTrue(t.flags);
+  document.getElementById('progtxt').textContent = `${a} / ${n} answered` + (flagged ? ` · ${flagged} flagged` : '');
   document.getElementById('progbar').style.width = (a / n * 100) + '%';
 }
 function renderNav() {
@@ -172,7 +156,7 @@ function renderQuestion() {
   if (t.shownGroup !== q.group || !document.getElementById('gbox')) {
     const showHead = !prev || prev.title !== g.title;
     card.innerHTML = '<div id="gbox"></div><div id="qbox"></div>';
-    document.getElementById('gbox').innerHTML = groupHtml(g, t.testId, showHead, true);
+    document.getElementById('gbox').innerHTML = groupHtml(g, t.testId, showHead);
     t.shownGroup = q.group;
   } else {
     const head = document.querySelector('#gbox .gh'); if (head) head.style.display = (prev && prev.title === g.title) ? 'none' : '';
@@ -180,7 +164,7 @@ function renderQuestion() {
   const hide = g.hideChoices;
   document.getElementById('qbox').innerHTML = `<div class="qhead"><span class="qnum">Q${esc(q.number)}</span><span class="grow"></span>
       <button id="flagbtn">${t.flags[q.id] ? '⚑ Flagged' : '⚐ Flag'}</button></div>
-    ${q.prompt && !/^\{\d+\}$/.test(q.prompt) ? `<div class="prompt">${fmt(q.prompt)}</div>` : (/^\{\d+\}$/.test(q.prompt) ? `<div class="prompt">Blank ${fmt(q.prompt)}</div>` : '')}
+    ${promptHtml(q.prompt)}
     ${hide ? '<div class="muted small">Audio-only question: choices are not printed. Choose the number you heard.</div>' : ''}
     <div id="choices"></div>
     <div class="row" style="margin-top:14px"><button id="prev" ${t.idx === 0 ? 'disabled' : ''}>← Previous</button><span class="grow"></span>
@@ -192,7 +176,7 @@ function renderQuestion() {
   const nx = document.getElementById('next'); if (nx) nx.onclick = () => go(t.idx + 1);
   const fn = document.getElementById('fin'); if (fn) fn.onclick = confirmSubmit;
 }
-function groupHtml(g, testId, showHead, withAudio) {
+function groupHtml(g, testId, showHead) {
   return `${showHead && g.title ? `<div class="gh"><b>${esc(g.title)}</b><span class="small">${fmt(g.instructions)}</span></div>` : ''}
     ${g.audio ? `<audio controls preload="metadata" src="${mediaUrl(testId, g.audio)}"></audio>` : ''}
     ${g.passage ? `<div class="passage">${fmt(g.passage)}</div>` : ''}`;
@@ -208,21 +192,10 @@ function confirmSubmit() {
 async function submitTake(timedOut) {
   const t = S.take; if (!t || t.submitting) return; t.submitting = true;
   if (S.cleanup) { S.cleanup(); S.cleanup = null; }
-  const d = t.data, used = new Set(d.questions.map((q) => q.group)), groups = {};
-  for (const id of used) if (d.groups[id]) { const g = d.groups[id]; groups[id] = { title: g.title, instructions: g.instructions, passage: g.passage, audio: g.audio, hideChoices: g.hideChoices }; }
-  const questions = d.questions.map((q) => { const sel = t.answers[q.id] || null;
-    return { id: q.id, number: q.number, group: q.group, prompt: q.prompt, choices: q.choices, answer: q.answer, selected: sel, isCorrect: sel === q.answer,
-      flagged: !!t.flags[q.id], timeSec: Math.round(t.times[q.id] || 0), explanation: q.explanation, why: q.why, transcript: q.transcript }; });
-  const correct = questions.filter((q) => q.isCorrect).length;
-  const now = new Date().toISOString();
-  const result = { schemaVersion: 1, createdAt: t.startedAt, finishedAt: now, sections: [{
-    testId: t.testId, testTitle: d.test.title, sectionId: t.sectionId, sectionTitle: d.section.title, type: d.section.type,
-    timeLimitSec: t.limit, elapsedSec: Math.round(t.elapsed), timedOut: !!timedOut,
-    score: { correct, total: questions.length, answered: questions.filter((q) => q.selected).length, percent: Math.round(correct / questions.length * 100) },
-    groups, questions }] };
+  const result = Core.buildResult(t, timedOut, new Date().toISOString());
   try {
     const r = await api('/api/results', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(result) });
-    LS.del('n1.inprogress'); S.take = null; location.hash = '#/result/' + encodeURIComponent(r.id);
+    LS.del(KEY.progress); S.take = null; location.hash = '#/result/' + encodeURIComponent(r.id);
   } catch (e) { t.submitting = false; modal(`<b>Could not save the result</b><pre>${esc(e.message)}</pre><button id="x">Close</button>`).querySelector('#x').onclick = closeModal; }
 }
 
@@ -244,7 +217,7 @@ async function viewResult(id) {
           <span class="grow"></span><button data-retake="${esc(s.testId)}|${esc(s.sectionId)}">Retake</button></div></div>` + reviewList(s, filter);
       }).join('');
     $app.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { filter = b.dataset.f; draw(); });
-    $app.querySelectorAll('[data-retake]').forEach((b) => b.onclick = () => { const [t, s] = b.dataset.retake.split('|'); startTake(t, s, LS.get('n1.timed', true), null, LS.get('n1.feedback', false)); });
+    $app.querySelectorAll('[data-retake]').forEach((b) => b.onclick = () => { const [t, s] = b.dataset.retake.split('|'); startTake(t, s, LS.get(KEY.timed, true), null, LS.get(KEY.feedback, false)); });
   };
   draw();
 }
@@ -263,9 +236,9 @@ function reviewList(s, filter) {
     const g = s.groups[q.group] || {};
     const newGroup = q.group !== prevGroup;
     const status = !q.selected ? '<span class="pill warn">unanswered</span>' : q.isCorrect ? '<span class="pill good">correct</span>' : '<span class="pill bad">wrong</span>';
-    html += `<div class="card">${newGroup ? groupHtml(g, s.testId, g.title !== prevTitle, true) : ''}
+    html += `<div class="card">${newGroup ? groupHtml(g, s.testId, g.title !== prevTitle) : ''}
       <div class="qhead"><span class="qnum">Q${esc(q.number)}</span>${status}${q.flagged ? '<span class="pill warn">⚑</span>' : ''}<span class="grow"></span><span class="muted small">${q.timeSec}s</span></div>
-      ${q.prompt && !/^\{\d+\}$/.test(q.prompt) ? `<div class="prompt">${fmt(q.prompt)}</div>` : (/^\{\d+\}$/.test(q.prompt) ? `<div class="prompt">Blank ${fmt(q.prompt)}</div>` : '')}
+      ${promptHtml(q.prompt)}
       ${reviewBody(q)}</div>`;
     prevGroup = q.group; prevTitle = g.title;
   }

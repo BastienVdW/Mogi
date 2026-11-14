@@ -1,4 +1,4 @@
-# Mogi: JLPT N1 practice trainer
+# Mogi: JLPT practice trainer
 
 A small, dependency-free app (Node.js 18+, no `npm install`) for practising the JLPT N1
 from official sample tests. Run a section with a timer, review every question with
@@ -16,7 +16,7 @@ per-choice explanations, and keep a history of your attempts.
 ## Quick start
 
 ```
-N1Trainer.cmd          # Windows launcher
+JLPTTrainer.cmd         # Windows launcher
 # or
 cd app && node server.js [--port 4821] [--data DIR] [--no-open]
 ```
